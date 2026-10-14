@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kettle & Crumb — Order Book Demo</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+body { background: #fffbf5; color: #2c1810; min-height: 100vh; padding: 20px; }
+.container { max-width: 750px; margin: 0 auto; }
+.back-link { display: inline-block; margin-bottom: 20px; color: #d2691e; text-decoration: none; }
+header { text-align: center; margin-bottom: 30px; }
+h1 { font-size: 1.8rem; color: #8b4513; }
+.demo-badge { background: #f5deb3; color: #8b4513; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; display: inline-block; margin-top: 8px; }
+
+/* Input Area */
+.input-card { background: #fff; padding: 25px; border-radius: 14px; box-shadow: 0 2px 12px rgba(139,69,19,0.1); margin-bottom: 25px; }
+textarea { width: 100%; min-height: 110px; padding: 14px; font-size: 1rem; border: 2px solid #deb887; border-radius: 8px; resize: vertical; margin-bottom: 15px; }
+textarea:focus { outline: none; border-color: #d2691e; }
+button { padding: 14px 28px; font-size: 1rem; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; }
+.btn-add { background: #d2691e; color: white; width: 100%; }
+
+/* Order List */
+.order { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 15px; border-left: 4px solid #cd853f; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: 0.2s; }
+.order.urgent { border-left-color: #dc2626; background: #fff8f8; }
+.order.done { opacity: 0.6; border-left-color: #22c55e; }
+.order-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.customer-name { font-weight: bold; font-size: 1.1rem; color: #5d3a1a; }
+.order-date { font-size: 0.9rem; color: #8b7355; }
+.order-items { margin: 10px 0; line-height: 1.6; }
+.allergy-tag { display: inline-block; background: #fef2f2; color: #dc2626; padding: 3px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; margin-right: 8px; margin-bottom: 4px; }
+.order-actions { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-done { background: #22c55e; color: white; padding: 8px 16px; font-size: 0.9rem; }
+.btn-delete { background: #f3f4f6; color: #6b7280; padding: 8px 16px; font-size: 0.9rem; }
+.empty-state { text-align: center; padding: 40px; color: #8b7355; }
+.note { margin-top: 25px; font-size: 0.85rem; color: #8b7355; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="index.html" class="back-link">← Back to Home</a>
+  
+  <header>
+    <h1>🥐 Kettle & Crumb — Order Book</h1>
+    <p style="color:#6b5344;">All orders. One place. No stress.</p>
+    <span class="demo-badge">DEMO · Fictional Example</span>
+  </header>
+
+  <div class="input-card">
+    <label style="font-weight:bold; display:block; margin-bottom:10px;">New Order — Paste or Type</label>
+    <textarea id="newOrderInput" placeholder="e.g., Sarah — 12/10 — 2 loaves sourdough, 1 vanilla cake — NUTS ALLERGY — collect Sat 2pm"></textarea>
+    <button class="btn-add" id="addOrderBtn">➕ Add to Order Book</button>
+  </div>
+
+  <div id="ordersList">
+    <div class="empty-state" id="emptyMsg">
+      Start adding your orders above 👆
+    </div>
+  </div>
+
+  <p class="note">This is a demo. All orders and names are fictional examples for testing.</p>
+</div>
+
+<script>
+const orders = [];
+const ordersList = document.getElementById('ordersList');
+const newOrderInput = document.getElementById('newOrderInput');
+const addOrderBtn = document.getElementById('addOrderBtn');
+const emptyMsg = document.getElementById('emptyMsg');
+
+// Allergy keywords to detect
+const allergyWords = ['nut', 'nuts', 'peanut', 'gluten', 'dairy', 'egg', 'vegan', 'allerg', 'no ', 'free'];
+
+function detectAllergy(text) {
+  return allergyWords.some(word => text.toLowerCase().includes(word));
+}
+
+function detectUrgent(text) {
+  return /urgent|asap|today|tomorrow|morning|early/i.test(text);
+}
+
+function renderOrders() {
+  ordersList.innerHTML = '';
+  if (orders.length === 0) {
+    ordersList.innerHTML = `<div class="empty-state" id="emptyMsg">Start adding your orders above 👆</div>`;
+    return;
+  }
+
+  orders.forEach((order, idx) => {
+    const orderEl = document.createElement('div');
+    orderEl.className = `order ${order.urgent ? 'urgent' : ''} ${order.done ? 'done' : ''}`;
+    
+    orderEl.innerHTML = `
+      <div class="order-header">
+        <div>
+          <div class="customer-name">${order.customer || 'New Order'}</div>
+          <div class="order-date">${order.date || 'Date not set'}</div>
+        </div>
+      </div>
+      <div class="order-items">
+        ${order.hasAllergy ? '<span class="allergy-tag">⚠️ ALLERGY</span>' : ''}
+        ${order.items}
+      </div>
+      <div class="order-actions">
+        <button class="btn-done" data-idx="${idx}">✓ Done</button>
+        <button class="btn-delete" data-idx="${idx}">🗑 Remove</button>
+      </div>
+    `;
+    ordersList.appendChild(orderEl);
+  });
+
+  // Attach action listeners
+  document.querySelectorAll('.btn-done').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = parseInt(btn.dataset.idx);
+      orders[i].done = !orders[i].done;
+      renderOrders();
+    });
+  });
+  document.querySelectorAll('.btn-delete').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = parseInt(btn.dataset.idx);
+      orders.splice(i, 1);
+      renderOrders();
+    });
+  });
+}
+
+function parseOrder(text) {
+  // Simple parser — split by common separators
+  const parts = text.split(/[—–\n•·-]/);
+  return {
+    raw: text,
+    customer: parts[0]?.trim() || 'Customer',
+    date: parts[1]?.trim() || new Date().toLocaleDateString(),
+    items: parts.slice(2).join(' · ') || text,
+    hasAllergy: detectAllergy(text),
+    urgent: detectUrgent(text),
+    done: false
+  };
+}
+
+addOrderBtn.addEventListener('click', () => {
+  const text = newOrderInput.value.trim();
+  if (!text) { alert('Please type or paste an order'); return; }
+  
+  orders.unshift(parseOrder(text)); // Newest at top
+  newOrderInput.value = '';
+  renderOrders();
+});
+
+// Initial render
+renderOrders();
+</script>
+</body>
+</html>
